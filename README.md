@@ -122,3 +122,7 @@ docs/                benchmark.csv, example paths, figures
 ```
 
 CI builds in Release with `g++`, runs the tests and the small benchmark, and draws the three figures from that small run.
+
+## License
+
+MIT. See [LICENSE](LICENSE).

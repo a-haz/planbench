@@ -52,6 +52,7 @@ if(PLANBENCH_BUILD_TESTS)
     tests/test_rrt_star.cpp
     tests/test_state_lattice.cpp
     tests/test_map_generator.cpp
+    tests/test_occupancy_grid.cpp
   )
   target_link_libraries(planbench_tests PRIVATE planbench GTest::gtest_main)
   planbench_warnings(planbench_tests)

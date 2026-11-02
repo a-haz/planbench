@@ -4,7 +4,7 @@ A C++17 library for 2D path planning on a shared occupancy grid, with three plan
 
 A\* runs on an 8-connected grid. Cardinal steps cost one cell width and diagonal steps cost `sqrt(2)` cell widths. A diagonal step is rejected when either adjacent cardinal cell is occupied, so the path cannot clip a corner. The heuristic is the octile distance, which is consistent on this graph, so a path that is found is optimal in grid length.
 
-RRT\* works in continuous coordinates. Samples are uniform inside the map. Each edge is a straight segment and is kept only when it does not touch an occupied cell. Nearby vertices are rewired inside a radius that shrinks as `sqrt(log n / n)`.
+RRT\* works in continuous coordinates. Samples are uniform inside the map. Each edge is a straight segment and is kept only when it does not touch an occupied cell. Nearby vertices are rewired inside a radius that shrinks as `sqrt(log n / n)`, clamped between one and twelve step lengths.
 
 The state lattice is for a simple car. The state is a grid cell plus one of four headings (0°, 90°, 180°, 270°). Motion primitives are forward straights and 90° circular arcs at a fixed turning radius. A rectangular body is checked along each primitive. Search is A\* with Euclidean distance as the heuristic, so the result is optimal in arc length over this primitive set. The vehicle starts facing +x.
 
@@ -98,7 +98,7 @@ Mean path length is in meters. At density 0.30 the RRT\* mean is not monotone in
 | rrt_budget | rrt_star | 0.30 | 1000 | 20 | 14 | 0.700000 | 14.566367 | 2.608768 |
 | rrt_budget | rrt_star | 0.30 | 2000 | 20 | 19 | 0.950000 | 14.133611 | 8.711954 |
 
-A\* solves every map. Its path length grows from 13.06 m at density 0.10 to 15.07 m at density 0.30, and each search takes under 0.03 ms. RRT\* at 1000 iterations also solves every map at the two lower densities and 14 of 20 at density 0.30. At that density its success rate goes from 0.30 at 250 iterations to 0.95 at 2000. The state lattice solves every map at densities 0.10 and 0.20 but only 1 of 20 at 0.30, with a 23.21 m path, because the body and turning radius no longer fit through most gaps.
+A\* solves every map. Its path length grows from 13.06 m at density 0.10 to 15.07 m at density 0.30, and its mean search time is under 0.03 ms. RRT\* at 1000 iterations also solves every map at the two lower densities and 14 of 20 at density 0.30. At that density its success rate goes from 0.30 at 250 iterations to 0.95 at 2000. The state lattice solves every map at densities 0.10 and 0.20 but only 1 of 20 at 0.30, with a 23.21 m path, because the body and turning radius no longer fit through most gaps.
 
 ## Figures
 

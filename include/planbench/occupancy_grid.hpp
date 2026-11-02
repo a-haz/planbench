@@ -33,6 +33,9 @@ class OccupancyGrid {
   // True when the closed segment stays inside the map and does not touch an
   // occupied cell. A segment that passes through a grid corner also touches
   // the two side cells, so diagonal moves cannot clip an occupied corner.
+  // A point on a grid line belongs to the cell above or right of it, as in
+  // worldToCell, so a segment lying exactly on a grid line is only checked
+  // against the cells on that side.
   bool segmentFree(Vec2 a, Vec2 b) const;
 
   // Oriented rectangle: center (x, y), yaw theta, length along heading, width

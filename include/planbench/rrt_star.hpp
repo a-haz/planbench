@@ -15,6 +15,7 @@ struct RRTStarParams {
   double goal_sample_probability = 0.1;
   std::uint32_t seed = 1;
   // 1-based iteration counts at which the current best path is recorded.
+  // A count below 1 is recorded before the first iteration.
   // The search runs through max(max_iterations, last snapshot).
   std::vector<int> snapshot_iterations;
 };

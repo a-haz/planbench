@@ -145,11 +145,13 @@ RRTStarResult RRTStarPlanner::plan(const OccupancyGrid& grid, Vec2 start, Vec2 g
     return std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - started).count();
   };
 
+  // Snapshots are sorted, so every requested count is recorded exactly once,
+  // including counts below 1 before the first iteration.
   const auto record_if_needed = [&](int iteration) {
-    while (next_snapshot < snapshots.size() && snapshots[next_snapshot] == iteration) {
+    while (next_snapshot < snapshots.size() && snapshots[next_snapshot] <= iteration) {
       GoalLink link = bestGoalPath(nodes, grid, goal, params.goal_radius);
       RRTStarSnapshot snap;
-      snap.iterations = iteration;
+      snap.iterations = snapshots[next_snapshot];
       snap.success = link.success;
       snap.path_length = link.success ? link.length : 0.0;
       snap.runtime_ms = elapsed_ms();
@@ -158,6 +160,7 @@ RRTStarResult RRTStarPlanner::plan(const OccupancyGrid& grid, Vec2 start, Vec2 g
     }
   };
 
+  record_if_needed(0);
   for (int iteration = 1; iteration <= horizon; ++iteration) {
     Vec2 sample = goal;
     if (unit(rng) >= params.goal_sample_probability) {

@@ -123,6 +123,29 @@ TEST(RRTStar, LengthDoesNotGrowAsTheIterationBudgetGrows) {
   EXPECT_NEAR(result.length, result.snapshots.back().path_length, 1e-8);
 }
 
+TEST(RRTStar, SnapshotBelowOneDoesNotHideLaterSnapshots) {
+  OccupancyGrid grid(16, 16, 0.5);
+  const Vec2 start = grid.cellCenter(1, 1);
+  const Vec2 goal = grid.cellCenter(14, 14);
+  auto params = baseParams();
+  params.max_iterations = 300;
+  const auto plain = RRTStarPlanner{}.plan(grid, start, goal, params);
+
+  params.snapshot_iterations = {200, 0, 100};
+  const auto result = RRTStarPlanner{}.plan(grid, start, goal, params);
+  ASSERT_EQ(result.snapshots.size(), 3u);
+  EXPECT_EQ(result.snapshots[0].iterations, 0);
+  EXPECT_EQ(result.snapshots[1].iterations, 100);
+  EXPECT_EQ(result.snapshots[2].iterations, 200);
+  // Before any sample the tree is just the start, which is far from the goal.
+  EXPECT_FALSE(result.snapshots[0].success);
+
+  // Recording snapshots must not change the search itself.
+  ASSERT_EQ(result.success, plain.success);
+  ASSERT_EQ(result.path.size(), plain.path.size());
+  EXPECT_DOUBLE_EQ(result.length, plain.length);
+}
+
 TEST(RRTStar, ScatteredObstaclesStayCollisionFree) {
   OccupancyGrid grid(20, 16, 0.4);
   for (int y = 0; y < grid.height(); ++y) {

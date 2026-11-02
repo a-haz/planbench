@@ -185,6 +185,13 @@ bool validLattice(const planbench::OccupancyGrid& grid, planbench::Vec2 start, p
   if (result.length + 1e-6 < planbench::distance(start, goal)) {
     return false;
   }
+  // The samples lie on the primitives, so their polyline never exceeds the
+  // stated arc length and falls short only by the chord error on the arcs,
+  // which stays below 0.3 percent at a quarter-cell sample spacing.
+  const double sampled = planbench::polylineLength(result.path);
+  if (sampled > result.length + 1e-6 || sampled < (1.0 - 5e-3) * result.length) {
+    return false;
+  }
   for (std::size_t i = 0; i < result.path.size(); ++i) {
     if (!grid.rectangleFree(result.path[i].x, result.path[i].y, result.heading[i], params.body_length_m,
                             params.body_width_m)) {

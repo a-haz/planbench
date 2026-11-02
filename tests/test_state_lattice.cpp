@@ -101,6 +101,27 @@ TEST(StateLattice, DetourAroundABlockIsCollisionFree) {
   EXPECT_NEAR(result.turning_radius_m, 1.0, 1e-12);
 }
 
+TEST(StateLattice, ReportedLengthMatchesTheSampledPath) {
+  // The detour around the block needs arcs, whose samples are chords of the
+  // arc, so the polyline is slightly shorter than the reported arc length.
+  OccupancyGrid grid(24, 24, 0.5);
+  for (int y = 8; y <= 16; ++y) {
+    for (int x = 10; x <= 13; ++x) {
+      grid.setOccupied(x, y, true);
+    }
+  }
+  LatticeParams params;
+  params.turning_radius_m = 1.0;
+  params.body_length_m = 0.45;
+  params.body_width_m = 0.30;
+  const auto result = StateLatticePlanner{}.plan(grid, grid.cellCenter(2, 12), grid.cellCenter(21, 12), params);
+  ASSERT_TRUE(result.success);
+  const double sampled = planbench::polylineLength(result.path);
+  EXPECT_LE(sampled, result.length + 1e-9);
+  EXPECT_GT(sampled, (1.0 - 5e-3) * result.length);
+  EXPECT_GT(result.length - sampled, 1e-6);
+}
+
 TEST(StateLattice, StartEqualsGoal) {
   OccupancyGrid grid(8, 8, 1.0);
   const Vec2 pose = grid.cellCenter(3, 3);

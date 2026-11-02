@@ -160,7 +160,9 @@ bool OccupancyGrid::segmentFree(Vec2 a, Vec2 b) const {
 }
 
 bool OccupancyGrid::rectangleFree(double x, double y, double theta, double length, double width) const {
-  if (!(length > 0.0) || !(width > 0.0)) {
+  // A NaN corner would slip past the bounds test below and reach the
+  // double-to-int cell conversion, which is undefined for NaN and infinity.
+  if (!std::isfinite(x) || !std::isfinite(y) || !std::isfinite(theta) || !(length > 0.0) || !(width > 0.0)) {
     return false;
   }
   const double c = std::cos(theta);

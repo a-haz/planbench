@@ -36,7 +36,8 @@ class OccupancyGrid {
   bool segmentFree(Vec2 a, Vec2 b) const;
 
   // Oriented rectangle: center (x, y), yaw theta, length along heading, width
-  // across heading. Touching an occupied cell or leaving the map is a collision.
+  // across heading. Touching an occupied cell or leaving the map is a collision,
+  // and so is a pose with a non-finite coordinate or heading.
   bool rectangleFree(double x, double y, double theta, double length, double width) const;
 
  private:

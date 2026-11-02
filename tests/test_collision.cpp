@@ -3,6 +3,7 @@
 #include <gtest/gtest.h>
 
 #include <cmath>
+#include <limits>
 #include <stdexcept>
 #include <vector>
 
@@ -122,6 +123,19 @@ TEST(Collision, RectangleFootprint) {
   EXPECT_TRUE(grid.rectangleFree(0.5, 0.5, 0.7, 0.3, 0.3));
   EXPECT_FALSE(grid.rectangleFree(0.2, 0.5, 0.0, 0.8, 0.2));
   EXPECT_FALSE(grid.rectangleFree(2.5, 2.5, 0.4, 0.0, 0.2));
+}
+
+TEST(Collision, NonFiniteRectanglePoseIsNotFree) {
+  // The map is empty, so only the pose itself can make these collide.
+  OccupancyGrid grid(5, 5, 1.0);
+  const double nan = std::numeric_limits<double>::quiet_NaN();
+  const double inf = std::numeric_limits<double>::infinity();
+  EXPECT_TRUE(grid.rectangleFree(2.5, 2.5, 0.3, 0.4, 0.2));
+  EXPECT_FALSE(grid.rectangleFree(nan, 2.5, 0.3, 0.4, 0.2));
+  EXPECT_FALSE(grid.rectangleFree(2.5, nan, 0.3, 0.4, 0.2));
+  EXPECT_FALSE(grid.rectangleFree(2.5, 2.5, nan, 0.4, 0.2));
+  EXPECT_FALSE(grid.rectangleFree(2.5, 2.5, inf, 0.4, 0.2));
+  EXPECT_FALSE(grid.rectangleFree(inf, 2.5, 0.3, 0.4, 0.2));
 }
 
 TEST(Collision, SegmentAgreesWithCellIntersection) {

@@ -56,6 +56,15 @@ struct Stats {
   int successes = 0;
   double length_sum = 0.0;
   double runtime_sum = 0.0;
+
+  void add(bool success, double length, double runtime_ms) {
+    ++trials;
+    runtime_sum += runtime_ms;
+    if (success) {
+      ++successes;
+      length_sum += length;
+    }
+  }
 };
 
 struct ExampleChoice {
@@ -228,6 +237,24 @@ void considerExample(ExampleChoice& best, double density, std::uint32_t seed, bo
   }
 }
 
+planbench::RRTStarParams rrtParams(const Config& config, std::uint32_t map_seed, int iterations) {
+  planbench::RRTStarParams params;
+  params.max_iterations = iterations;
+  params.step_size = config.rrt_step;
+  params.goal_radius = config.rrt_goal_radius;
+  params.goal_sample_probability = config.rrt_goal_bias;
+  params.seed = map_seed + 7919u;
+  return params;
+}
+
+planbench::LatticeParams latticeParams(const Config& config) {
+  planbench::LatticeParams params;
+  params.turning_radius_m = config.turning_radius;
+  params.body_length_m = config.body_length;
+  params.body_width_m = config.body_width;
+  return params;
+}
+
 bool writeExample(const Config& config, const ExampleChoice& choice) {
   if (!writeParent(config.paths)) {
     std::cerr << "could not create " << config.paths << "\n";
@@ -238,17 +265,8 @@ bool writeExample(const Config& config, const ExampleChoice& choice) {
   const auto map =
       planbench::generateMap(config.width, config.height, config.resolution, density, seed, config.clearance_cells);
 
-  planbench::RRTStarParams rrt_params;
-  rrt_params.max_iterations = config.rrt_summary_iterations;
-  rrt_params.step_size = config.rrt_step;
-  rrt_params.goal_radius = config.rrt_goal_radius;
-  rrt_params.goal_sample_probability = config.rrt_goal_bias;
-  rrt_params.seed = seed + 7919u;
-
-  planbench::LatticeParams lattice_params;
-  lattice_params.turning_radius_m = config.turning_radius;
-  lattice_params.body_length_m = config.body_length;
-  lattice_params.body_width_m = config.body_width;
+  const auto rrt_params = rrtParams(config, seed, config.rrt_summary_iterations);
+  const auto lattice_params = latticeParams(config);
 
   const auto astar = planbench::AStarPlanner{}.plan(map.grid, map.start, map.goal);
   const auto rrt = planbench::RRTStarPlanner{}.plan(map.grid, map.start, map.goal, rrt_params);
@@ -369,12 +387,7 @@ int main(int argc, char** argv) {
         return 1;
       }
 
-      planbench::RRTStarParams rrt_params;
-      rrt_params.max_iterations = config.rrt_checkpoints.back();
-      rrt_params.step_size = config.rrt_step;
-      rrt_params.goal_radius = config.rrt_goal_radius;
-      rrt_params.goal_sample_probability = config.rrt_goal_bias;
-      rrt_params.seed = seed + 7919u;
+      auto rrt_params = rrtParams(config, seed, config.rrt_checkpoints.back());
       rrt_params.snapshot_iterations = config.rrt_checkpoints;
       const auto rrt = planbench::RRTStarPlanner{}.plan(map.grid, map.start, map.goal, rrt_params);
       if (!validRRT(map.grid, map.start, map.goal, rrt)) {
@@ -386,10 +399,7 @@ int main(int argc, char** argv) {
         return 1;
       }
 
-      planbench::LatticeParams lattice_params;
-      lattice_params.turning_radius_m = config.turning_radius;
-      lattice_params.body_length_m = config.body_length;
-      lattice_params.body_width_m = config.body_width;
+      const auto lattice_params = latticeParams(config);
       const auto lattice_begin = std::chrono::steady_clock::now();
       const auto lattice = planbench::StateLatticePlanner{}.plan(map.grid, map.start, map.goal, lattice_params);
       const double lattice_ms =
@@ -399,19 +409,8 @@ int main(int argc, char** argv) {
         return 1;
       }
 
-      ++astar_stats.trials;
-      astar_stats.runtime_sum += astar_ms;
-      if (astar.success) {
-        ++astar_stats.successes;
-        astar_stats.length_sum += astar.length;
-      }
-
-      ++lattice_stats.trials;
-      lattice_stats.runtime_sum += lattice_ms;
-      if (lattice.success) {
-        ++lattice_stats.successes;
-        lattice_stats.length_sum += lattice.length;
-      }
+      astar_stats.add(astar.success, astar.length, astar_ms);
+      lattice_stats.add(lattice.success, lattice.length, lattice_ms);
 
       for (std::size_t c = 0; c < config.rrt_checkpoints.size(); ++c) {
         const auto* snap = snapshotAt(rrt, config.rrt_checkpoints[c]);
@@ -419,20 +418,9 @@ int main(int argc, char** argv) {
           std::cerr << "missing RRT* snapshot\n";
           return 1;
         }
-        auto& bucket = rrt_curve[d][c];
-        ++bucket.trials;
-        bucket.runtime_sum += snap->runtime_ms;
-        if (snap->success) {
-          ++bucket.successes;
-          bucket.length_sum += snap->path_length;
-        }
+        rrt_curve[d][c].add(snap->success, snap->path_length, snap->runtime_ms);
         if (config.rrt_checkpoints[c] == config.rrt_summary_iterations) {
-          ++rrt_summary.trials;
-          rrt_summary.runtime_sum += snap->runtime_ms;
-          if (snap->success) {
-            ++rrt_summary.successes;
-            rrt_summary.length_sum += snap->path_length;
-          }
+          rrt_summary.add(snap->success, snap->path_length, snap->runtime_ms);
         }
       }
 

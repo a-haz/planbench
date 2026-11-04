@@ -18,6 +18,7 @@ add_library(planbench
   src/rrt_star.cpp
   src/state_lattice.cpp
   src/map_generator.cpp
+  src/benchmark_report.cpp
 )
 target_include_directories(planbench PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
@@ -53,6 +54,7 @@ if(PLANBENCH_BUILD_TESTS)
     tests/test_state_lattice.cpp
     tests/test_map_generator.cpp
     tests/test_occupancy_grid.cpp
+    tests/test_benchmark.cpp
   )
   target_link_libraries(planbench_tests PRIVATE planbench GTest::gtest_main)
   planbench_warnings(planbench_tests)

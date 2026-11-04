@@ -1,17 +1,24 @@
+#include "planbench/benchmark_report.hpp"
 #include "planbench/planbench.hpp"
 
 #include <chrono>
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
-#include <iomanip>
 #include <iostream>
-#include <sstream>
 #include <string>
 #include <utility>
 #include <vector>
 
 namespace {
+
+using planbench::benchmark::addTrial;
+using planbench::benchmark::csvRow;
+using planbench::benchmark::formatDouble;
+using planbench::benchmark::Stats;
+using planbench::benchmark::validAStar;
+using planbench::benchmark::validLattice;
+using planbench::benchmark::validRRT;
 
 struct Config {
   int width = 32;
@@ -51,13 +58,6 @@ Config smallConfig() {
   return config;
 }
 
-struct Stats {
-  int trials = 0;
-  int successes = 0;
-  double length_sum = 0.0;
-  double runtime_sum = 0.0;
-};
-
 struct ExampleChoice {
   bool valid = false;
   int successes = -1;
@@ -70,13 +70,6 @@ void printUsage() {
   std::cerr << "usage: planbench_benchmark [--small] [--output PATH] [--paths PATH]\n";
 }
 
-std::string formatDouble(double value, int digits) {
-  std::ostringstream out;
-  out.imbue(std::locale::classic());
-  out << std::fixed << std::setprecision(digits) << value;
-  return out.str();
-}
-
 bool writeParent(const std::filesystem::path& path) {
   const auto parent = path.parent_path();
   if (parent.empty()) {
@@ -85,113 +78,6 @@ bool writeParent(const std::filesystem::path& path) {
   std::error_code error;
   std::filesystem::create_directories(parent, error);
   return !error;
-}
-
-bool validAStar(const planbench::OccupancyGrid& grid, planbench::Vec2 start, planbench::Vec2 goal,
-                const planbench::PlanResult& result) {
-  if (!result.success) {
-    return result.path.empty();
-  }
-  if (result.path.empty()) {
-    return false;
-  }
-  int sx = 0;
-  int sy = 0;
-  int gx = 0;
-  int gy = 0;
-  if (!grid.worldToCell(start.x, start.y, sx, sy) || !grid.worldToCell(goal.x, goal.y, gx, gy)) {
-    return false;
-  }
-  if (planbench::distance(result.path.front(), grid.cellCenter(sx, sy)) > 1e-6) {
-    return false;
-  }
-  if (planbench::distance(result.path.back(), grid.cellCenter(gx, gy)) > 1e-6) {
-    return false;
-  }
-  if (std::abs(result.length - planbench::polylineLength(result.path)) > 1e-6) {
-    return false;
-  }
-  for (std::size_t i = 1; i < result.path.size(); ++i) {
-    int x0 = 0;
-    int y0 = 0;
-    int x1 = 0;
-    int y1 = 0;
-    if (!grid.worldToCell(result.path[i - 1].x, result.path[i - 1].y, x0, y0) ||
-        !grid.worldToCell(result.path[i].x, result.path[i].y, x1, y1)) {
-      return false;
-    }
-    const int dx = x1 - x0;
-    const int dy = y1 - y0;
-    if (std::abs(dx) > 1 || std::abs(dy) > 1 || (dx == 0 && dy == 0)) {
-      return false;
-    }
-    if (grid.occupied(x1, y1)) {
-      return false;
-    }
-    if (dx != 0 && dy != 0 && (grid.occupied(x0 + dx, y0) || grid.occupied(x0, y0 + dy))) {
-      return false;
-    }
-    if (!grid.segmentFree(result.path[i - 1], result.path[i])) {
-      return false;
-    }
-  }
-  return true;
-}
-
-bool validRRT(const planbench::OccupancyGrid& grid, planbench::Vec2 start, planbench::Vec2 goal,
-              const planbench::RRTStarResult& result) {
-  if (!result.success) {
-    return result.path.empty();
-  }
-  if (result.path.size() < 2) {
-    return false;
-  }
-  if (planbench::distance(result.path.front(), start) > 1e-6 || planbench::distance(result.path.back(), goal) > 1e-6) {
-    return false;
-  }
-  if (std::abs(result.length - planbench::polylineLength(result.path)) > 1e-5) {
-    return false;
-  }
-  if (result.length + 1e-6 < planbench::distance(start, goal)) {
-    return false;
-  }
-  for (std::size_t i = 1; i < result.path.size(); ++i) {
-    if (!grid.segmentFree(result.path[i - 1], result.path[i])) {
-      return false;
-    }
-  }
-  return true;
-}
-
-bool validLattice(const planbench::OccupancyGrid& grid, planbench::Vec2 start, planbench::Vec2 goal,
-                  const planbench::LatticeResult& result, const planbench::LatticeParams& params) {
-  if (!result.success) {
-    return result.path.empty();
-  }
-  if (result.path.size() != result.heading.size() || result.path.empty()) {
-    return false;
-  }
-  int sx = 0;
-  int sy = 0;
-  int gx = 0;
-  int gy = 0;
-  if (!grid.worldToCell(start.x, start.y, sx, sy) || !grid.worldToCell(goal.x, goal.y, gx, gy)) {
-    return false;
-  }
-  if (planbench::distance(result.path.front(), grid.cellCenter(sx, sy)) > 1e-6 ||
-      planbench::distance(result.path.back(), grid.cellCenter(gx, gy)) > 1e-6) {
-    return false;
-  }
-  if (result.length + 1e-6 < planbench::distance(start, goal)) {
-    return false;
-  }
-  for (std::size_t i = 0; i < result.path.size(); ++i) {
-    if (!grid.rectangleFree(result.path[i].x, result.path[i].y, result.heading[i], params.body_length_m,
-                            params.body_width_m)) {
-      return false;
-    }
-  }
-  return true;
 }
 
 const planbench::RRTStarSnapshot* snapshotAt(const planbench::RRTStarResult& result, int iterations) {
@@ -295,19 +181,6 @@ bool writeExample(const Config& config, const ExampleChoice& choice) {
   return true;
 }
 
-std::string csvRow(const std::string& table, const std::string& planner, double density, int iterations, const Stats& stats) {
-  std::ostringstream out;
-  out.imbue(std::locale::classic());
-  out << table << "," << planner << "," << formatDouble(density, 2) << "," << iterations << "," << stats.trials << ","
-      << stats.successes << "," << formatDouble(static_cast<double>(stats.successes) / static_cast<double>(stats.trials), 6)
-      << ",";
-  if (stats.successes > 0) {
-    out << formatDouble(stats.length_sum / static_cast<double>(stats.successes), 6);
-  }
-  out << "," << formatDouble(stats.runtime_sum / static_cast<double>(stats.trials), 6);
-  return out.str();
-}
-
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -392,19 +265,9 @@ int main(int argc, char** argv) {
         return 1;
       }
 
-      ++astar_stats.trials;
-      astar_stats.runtime_sum += astar_ms;
-      if (astar.success) {
-        ++astar_stats.successes;
-        astar_stats.length_sum += astar.length;
-      }
+      addTrial(astar_stats, astar.success, astar.length, astar_ms);
 
-      ++lattice_stats.trials;
-      lattice_stats.runtime_sum += lattice_ms;
-      if (lattice.success) {
-        ++lattice_stats.successes;
-        lattice_stats.length_sum += lattice.length;
-      }
+      addTrial(lattice_stats, lattice.success, lattice.length, lattice_ms);
 
       for (std::size_t c = 0; c < config.rrt_checkpoints.size(); ++c) {
         const auto* snap = snapshotAt(rrt, config.rrt_checkpoints[c]);
@@ -413,19 +276,9 @@ int main(int argc, char** argv) {
           return 1;
         }
         auto& bucket = rrt_curve[d][c];
-        ++bucket.trials;
-        bucket.runtime_sum += snap->runtime_ms;
-        if (snap->success) {
-          ++bucket.successes;
-          bucket.length_sum += snap->path_length;
-        }
+        addTrial(bucket, snap->success, snap->path_length, snap->runtime_ms);
         if (config.rrt_checkpoints[c] == config.rrt_summary_iterations) {
-          ++rrt_summary.trials;
-          rrt_summary.runtime_sum += snap->runtime_ms;
-          if (snap->success) {
-            ++rrt_summary.successes;
-            rrt_summary.length_sum += snap->path_length;
-          }
+          addTrial(rrt_summary, snap->success, snap->path_length, snap->runtime_ms);
         }
       }
 
